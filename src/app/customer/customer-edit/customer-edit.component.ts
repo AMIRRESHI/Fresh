@@ -1,12 +1,13 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { Router, ActivatedRoute, Params } from '@angular/router';
-import { NgForm } from '@angular/forms';
+import { FormBuilder, FormGroup, NgForm } from '@angular/forms';
 
 import { DataService } from '../../core/services/data.service';
 import { ModalService, IModalContent } from '../../core/modal/modal.service';
 import { ICustomer, IState } from '../../shared/interfaces';
 import { GrowlerService, GrowlerMessageType } from '../../core/growler/growler.service';
 import { LoggerService } from '../../core/services/logger.service';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'cm-customer-edit',
@@ -32,19 +33,21 @@ export class CustomerEditComponent implements OnInit {
   errorMessage: string;
   deleteMessageEnabled: boolean;
   operationText = 'Insert';
-  @ViewChild('customerForm', { static: true }) customerForm: NgForm;
+  editForm: FormGroup;
 
   constructor(private router: Router,
     private route: ActivatedRoute,
     private dataService: DataService,
     private growler: GrowlerService,
     private modalService: ModalService,
-    private logger: LoggerService) { }
+    private logger: LoggerService,
+    private formBuilder: FormBuilder) { }
 
   ngOnInit() {
     // Subscribe to params so if it changes we pick it up. Don't technically need that here
     // since param won't be changing while component is alive.
     // Could use this.route.parent.snapshot.params["id"] to simplify it.
+    this.buildForm();
     this.route.parent.params.subscribe((params: Params) => {
       const id = +params['id'];
       if (id !== 0) {
@@ -56,19 +59,46 @@ export class CustomerEditComponent implements OnInit {
     this.dataService.getStates().subscribe((states: IState[]) => this.states = states);
   }
 
-  getCustomer(id: number) {
-    this.dataService.getCustomer(id).subscribe((customer: ICustomer) => {
-      this.customer = customer;
+  buildForm() {
+    this.editForm = this.formBuilder.group({
+      firstName: [''],
+      lastName: [''],
+      address: [''],
+      city: [''],
+      state: ['']
     });
   }
 
-  submit() {
+  getCustomer(id: number) {
+    this.dataService.getCustomer(id)
+      .pipe(
+        filter((data) => !!data)
+      ).subscribe(
+        (customer: ICustomer) => {
+          this.customer = customer;
+          this.setValue();
+        });
+  }
+
+  setValue() {
+    console.log(this.customer);
+    this.editForm.setValue(
+      {
+        firstName: this.customer.firstName,
+        lastName: this.customer.lastName,
+        address: this.customer.address,
+        city: this.customer.city,
+        state: this.customer.state.abbreviation
+      });
+  }
+
+  submit({ value }: { value: ICustomer }) {
     if (this.customer.id === 0) {
-      this.dataService.insertCustomer(this.customer)
+      this.dataService.insertCustomer(value)
         .subscribe((insertedCustomer: ICustomer) => {
           if (insertedCustomer) {
             // Mark form as pristine so that CanDeactivateGuard won't prompt before navigation
-            this.customerForm.form.markAsPristine();
+            this.editForm.markAsPristine();
             this.router.navigate(['/customers']);
           } else {
             const msg = 'Unable to insert customer';
@@ -78,15 +108,20 @@ export class CustomerEditComponent implements OnInit {
         },
           (err: any) => this.logger.log(err));
     } else {
-      this.dataService.updateCustomer(this.customer)
+      const payload: ICustomer = {
+        ...value,
+        id: this.customer.id
+      };
+      console.log(payload);
+      this.dataService.updateCustomer(payload)
         .subscribe((status: boolean) => {
           if (status) {
             // Mark form as pristine so that CanDeactivateGuard won't prompt before navigation
-            this.customerForm.form.markAsPristine();
+            this.editForm.markAsPristine();
             this.growler.growl('Operation performed successfully.', GrowlerMessageType.Success);
             // this.router.navigate(['/customers']);
           } else {
-            const msg = 'Unable to update customer';
+            const msg = 'Unable to update customeraaa';
             this.growler.growl(msg, GrowlerMessageType.Danger);
             this.errorMessage = msg;
           }
@@ -115,7 +150,7 @@ export class CustomerEditComponent implements OnInit {
   }
 
   canDeactivate(): Promise<boolean> | boolean {
-    if (!this.customerForm.dirty) {
+    if (!this.editForm.dirty) {
       return true;
     }
 
