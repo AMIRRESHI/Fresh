@@ -33,6 +33,7 @@ export class CustomerEditComponent implements OnInit {
   errorMessage: string;
   deleteMessageEnabled: boolean;
   operationText = 'Insert';
+  changedStateName = '';
   editForm: FormGroup;
 
   constructor(private router: Router,
@@ -65,7 +66,10 @@ export class CustomerEditComponent implements OnInit {
       lastName: [''],
       address: [''],
       city: [''],
-      state: ['']
+      state: {
+        abbreviation: [''],
+        name: ['']
+      }
     });
   }
 
@@ -81,7 +85,6 @@ export class CustomerEditComponent implements OnInit {
   }
 
   setValue() {
-    console.log(this.customer);
     this.editForm.setValue(
       {
         firstName: this.customer.firstName,
@@ -92,7 +95,19 @@ export class CustomerEditComponent implements OnInit {
       });
   }
 
+  changeState($event) {
+    this.changedStateName = $event.target.options[$event.target.options.selectedIndex].text;
+  }
+
   submit({ value }: { value: ICustomer }) {
+    const payload: ICustomer = {
+      ...value,
+      id: this.customer.id,
+      state: {
+        abbreviation: this.editForm.get('state').value,
+        name: this.changedStateName
+      }
+    };
     if (this.customer.id === 0) {
       this.dataService.insertCustomer(value)
         .subscribe((insertedCustomer: ICustomer) => {
@@ -108,11 +123,6 @@ export class CustomerEditComponent implements OnInit {
         },
           (err: any) => this.logger.log(err));
     } else {
-      const payload: ICustomer = {
-        ...value,
-        id: this.customer.id
-      };
-      console.log(payload);
       this.dataService.updateCustomer(payload)
         .subscribe((status: boolean) => {
           if (status) {

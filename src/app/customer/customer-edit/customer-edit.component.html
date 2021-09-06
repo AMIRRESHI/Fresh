@@ -56,10 +56,11 @@
       </select> -->
     <div class="form-group">
       <label>State</label>
-      <select name="state" class="form-control" formControlName="state">
-        <option *ngFor="let state of states" [ngValue]="state.abbreviation">{{state.name}}</option>
+      <select name="state" class="form-control" formControlName="state" (change)="changeState($event)">
+        <option *ngFor="let eachState of states"  [ngValue]="eachState.abbreviation">{{eachState.name}}</option>
       </select>
     </div>
+    <!-- [selected]="eachState.abbreviation == 'CA'"-->
 
     <div *ngIf="customer">
       <div class="alert alert-warning" *ngIf="customer.id && deleteMessageEnabled">
